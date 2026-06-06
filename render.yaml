@@ -1,0 +1,75 @@
+services:
+  - type: web
+    name: linkguard-ai
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10000
+      - key: SCREENSHOT_SERVICE_URL
+        value: http://linkguard-screenshot:10001
+      - key: SCREENSHOT_SERVICE_TIMEOUT_MS
+        value: 20000
+      - key: SCREENSHOT_SERVICE_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+      - key: GOOGLE_SAFE_BROWSING_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+  - type: pserv
+    name: linkguard-screenshot
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile.screenshot
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 10001
+      - key: SCREENSHOT_MAX_CONCURRENT
+        value: 2
+      - key: SCREENSHOT_RATE_LIMIT_MAX
+        value: 10
+      - key: SCREENSHOT_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: SCREENSHOT_TIMEOUT_MS
+        value: 12000
+      - key: SCREENSHOT_MAX_AGE_MS
+        value: 86400000
+      - key: SCREENSHOT_MAX_TOTAL_BYTES
+        value: 209715200
+      - key: SCREENSHOT_STORAGE_DRIVER
+        value: s3
+      - key: SCREENSHOT_BUCKET
+        sync: false
+      - key: SCREENSHOT_ENDPOINT
+        sync: false
+      - key: SCREENSHOT_REGION
+        value: auto
+      - key: SCREENSHOT_ACCESS_KEY_ID
+        sync: false
+      - key: SCREENSHOT_SECRET_ACCESS_KEY
+        sync: false
+      - key: SCREENSHOT_KEY_PREFIX
+        value: screenshots
+      - key: SCREENSHOT_SIGNED_URL_TTL_SECONDS
+        value: 86400
+      - key: SCREENSHOT_SERVICE_TOKEN
+        sync: false

@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN analysis_credits INTEGER NOT NULL DEFAULT 0;

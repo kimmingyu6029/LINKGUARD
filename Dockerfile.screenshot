@@ -1,0 +1,25 @@
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=10001
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV SCREENSHOT_MAX_CONCURRENT=2
+ENV SCREENSHOT_RATE_LIMIT_MAX=10
+ENV SCREENSHOT_RATE_LIMIT_WINDOW_MS=60000
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY screenshot-server.mjs ./
+COPY src ./src
+RUN mkdir -p screenshots \
+  && chown -R pwuser:pwuser /app
+
+USER pwuser
+
+EXPOSE 10001
+
+CMD ["node", "screenshot-server.mjs"]

@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+.wrangler
+.vite
+dist
+node_modules
+qa-shots
+screenshots
+*.log
+npm-debug.log*
+Dockerfile
+Dockerfile.screenshot
+render.yaml

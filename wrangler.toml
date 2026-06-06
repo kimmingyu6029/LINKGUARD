@@ -1,0 +1,15 @@
+name = "linkguard-ai-ui"
+compatibility_date = "2026-05-26"
+pages_build_output_dir = "dist"
+
+[vars]
+OPENPHISH_FEED_URL = "https://openphish.com/feed.txt"
+KISA_SECURITY_RSS_URL = "https://www.boho.or.kr/kr/rss.do?bbsId=B0000133"
+VIRUSTOTAL_SUBMIT_UNKNOWN = "false"
+REPORT_EVIDENCE_PUBLIC_BASE_URL = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "linkguard-auth"
+database_id = "9c60c0b9-6cc4-40ba-92d8-62aefd7b83c6"
+migrations_dir = "migrations"

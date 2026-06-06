@@ -1,0 +1,32 @@
+{
+  "name": "linkguard-ai-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs --dev",
+    "build": "vite build",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "dev:cloudflare": "npm run build && wrangler pages dev dist",
+    "deploy": "npm run deploy:cloudflare",
+    "deploy:cloudflare": "node scripts/deploy-cloudflare.mjs",
+    "preview": "node server.mjs",
+    "start": "node server.mjs",
+    "test": "node --test",
+    "verify:cloudflare": "node scripts/verify-cloudflare.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1057.0",
+    "@aws-sdk/s3-request-presigner": "^3.1057.0",
+    "lucide-react": "1.14.0",
+    "playwright": "^1.60.0",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "react-router-dom": "7.15.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.0.1",
+    "vite": "8.0.10",
+    "wrangler": "4.94.0"
+  }
+}
