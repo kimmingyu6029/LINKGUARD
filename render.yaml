@@ -7,6 +7,10 @@ services:
     dockerContext: .
     healthCheckPath: /api/health
     autoDeploy: true
+    disk:
+      name: linkguard-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -14,6 +18,10 @@ services:
         value: 0.0.0.0
       - key: PORT
         value: 10000
+      - key: LOCAL_AUTH_DB_PATH
+        value: /data/local-auth-db.json
+      - key: LOCAL_COMMUNITY_DB_PATH
+        value: /data/local-community-db.json
       - key: SCREENSHOT_SERVICE_URL
         value: http://linkguard-screenshot:10001
       - key: SCREENSHOT_SERVICE_TIMEOUT_MS
