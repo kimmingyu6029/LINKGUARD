@@ -386,7 +386,7 @@ async function requestAuthJson(path, options = {}) {
     ...options,
   });
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  const payload = parseAuthPayload(text);
 
   if (!response.ok) {
     const error = new Error(payload.error || `인증 요청에 실패했습니다. (${response.status})`);
@@ -395,6 +395,20 @@ async function requestAuthJson(path, options = {}) {
   }
 
   return payload;
+}
+
+function parseAuthPayload(text) {
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      error: "로그인 서버 응답이 올바르지 않습니다. 배포가 끝난 뒤 새로고침하고 다시 시도해 주세요.",
+    };
+  }
 }
 
 function readStoredAccount() {
