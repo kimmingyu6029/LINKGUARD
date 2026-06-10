@@ -34,7 +34,6 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile.screenshot
     dockerContext: .
-    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: NODE_ENV
