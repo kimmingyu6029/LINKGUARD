@@ -55,20 +55,6 @@ services:
       - key: SCREENSHOT_MAX_TOTAL_BYTES
         value: 209715200
       - key: SCREENSHOT_STORAGE_DRIVER
-        value: s3
-      - key: SCREENSHOT_BUCKET
-        sync: false
-      - key: SCREENSHOT_ENDPOINT
-        sync: false
-      - key: SCREENSHOT_REGION
-        value: auto
-      - key: SCREENSHOT_ACCESS_KEY_ID
-        sync: false
-      - key: SCREENSHOT_SECRET_ACCESS_KEY
-        sync: false
-      - key: SCREENSHOT_KEY_PREFIX
-        value: screenshots
-      - key: SCREENSHOT_SIGNED_URL_TTL_SECONDS
-        value: 86400
+        value: local
       - key: SCREENSHOT_SERVICE_TOKEN
         sync: false
