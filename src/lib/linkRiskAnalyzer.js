@@ -116,6 +116,11 @@ const OFFICIAL_BRANDS = [
     domains: ["gmail.com", "google.com"],
   },
   {
+    name: "YouTube",
+    tokens: ["youtube", "유튜브"],
+    domains: ["youtube.com", "youtu.be"],
+  },
+  {
     name: "OpenAI",
     tokens: ["openai", "chatgpt"],
     domains: ["chatgpt.com", "openai.com"],

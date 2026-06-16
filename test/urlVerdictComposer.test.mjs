@@ -22,6 +22,31 @@ test("composeUrlVerdict applies reputation matches as confirmed malicious verdic
   assert.equal(result.signals[0].key, "reputation");
 });
 
+test("composeUrlVerdict does not treat weak stale VirusTotal single-engine detections as confirmed malicious", () => {
+  const analysis = analyzeUrl("https://www.youtube.com/watch?v=9Qc7xonwpQs");
+  const result = composeUrlVerdict({
+    analysis,
+    reputation: {
+      ageDays: 2327,
+      detail: "VirusTotal에서 72개 엔진 중 1개가 이 URL을 악성으로, 0개가 의심으로 분류했습니다.",
+      engines: [{ category: "malicious", engineName: "Quttera", result: "malicious" }],
+      label: "VirusTotal 위협 탐지",
+      matches: [{ harmless: 64, malicious: 1, suspicious: 0, total: 72, undetected: 7 }],
+      provider: "VirusTotal",
+      scanDate: "2020. 1. 31.",
+      status: "match",
+      stats: { harmless: 64, malicious: 1, suspicious: 0, timeout: 0, total: 72, undetected: 7 },
+      tone: "danger",
+    },
+  });
+
+  assert.equal(result.reputation.status, "suspicious");
+  assert.equal(result.reputation.severity, "low");
+  assert.notEqual(result.verdict, "malicious");
+  assert.ok(result.score < 41);
+  assert.ok(result.synthesisReasons.some((reason) => /단일 엔진|낮은 비율/.test(reason)));
+});
+
 test("composeUrlVerdict keeps AI judgments as a low-weight input after clean reputation", () => {
   const analysis = analyzeUrl("https://login-security-example.test/account");
   const result = composeUrlVerdict({

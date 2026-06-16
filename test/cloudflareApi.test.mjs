@@ -158,6 +158,85 @@ test("Cloudflare analyze handler uses Google Safe Browsing reputation matches", 
   }
 });
 
+test("Cloudflare analyze handler downgrades stale single-engine VirusTotal detections", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    const requestUrl = String(url);
+    calls.push({ method: options.method || "GET", url: requestUrl });
+
+    if (requestUrl.includes("virustotal.com")) {
+      return new Response(
+        JSON.stringify({
+          data: {
+            attributes: {
+              last_analysis_date: 1580436802,
+              last_analysis_results: {
+                Quttera: {
+                  category: "malicious",
+                  engine_name: "Quttera",
+                  method: "blacklist",
+                  result: "malicious",
+                },
+              },
+              last_analysis_stats: {
+                harmless: 64,
+                malicious: 1,
+                suspicious: 0,
+                timeout: 0,
+                undetected: 7,
+              },
+            },
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }
+
+    if (requestUrl.includes("openphish")) {
+      return new Response("", {
+        headers: { "Content-Type": "text/plain" },
+        status: 200,
+      });
+    }
+
+    return new Response("<!doctype html><title>YouTube</title>", {
+      headers: { "Content-Type": "text/html" },
+      status: 200,
+    });
+  };
+
+  try {
+    const request = new Request("https://example.test/api/analyze-url", {
+      body: JSON.stringify({ mode: "normal", url: "https://www.youtube.com/watch?v=9Qc7xonwpQs" }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    const response = await handleAnalyzeUrl(request, {
+      OPENPHISH_FEED_URL: "https://openphish-vt-weak.test/feed.txt",
+      VIRUSTOTAL_API_KEY: "test-vt-key",
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.reputation.provider, "VirusTotal");
+    assert.equal(body.reputation.status, "suspicious");
+    assert.equal(body.reputation.severity, "low");
+    assert.notEqual(body.verdict, "malicious");
+    assert.ok(body.score < 41);
+    assert.equal(calls.some((call) => call.url.includes("virustotal.com")), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Cloudflare analyze handler traces redirects and checks the final URL reputation", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];

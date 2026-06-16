@@ -22,6 +22,7 @@ export function composeUrlVerdict({ aiRisk = null, analysis, communityReport = n
 
 function attachReputation(analysis, reputation) {
   const result = structuredClone(analysis);
+  reputation = normalizeReputationForVerdict(reputation);
   result.mode = analysis.mode;
   result.reputation = reputation;
   result.signals = [
@@ -36,30 +37,40 @@ function attachReputation(analysis, reputation) {
 
   if (reputation.status !== "match") {
     if (reputation.status === "suspicious") {
+      const isLowSeverity = reputation.severity === "low";
+      const suspicionScore = isLowSeverity ? 40 : 60;
       const engineSummary = reputation.engines?.length
         ? ` 주요 근거: ${reputation.engines
             .slice(0, 2)
             .map((engine) => `${engine.engineName}${engine.result ? ` (${engine.result})` : ""}`)
             .join(", ")}.`
         : "";
-      result.caption = "의심 평판";
+      result.caption = isLowSeverity ? "낮은 평판 신호" : "의심 평판";
       result.evidence = [
         {
           detail: reputation.detail,
           label: `${reputation.provider || "평판 DB"} 의심 결과`,
-          points: 60,
+          points: suspicionScore,
         },
         ...result.evidence,
       ];
-      result.explanation = `${result.displayHost}은(는) ${reputation.provider || "평판 DB"}에서 의심 URL로 표시되었습니다.${engineSummary} 공식 채널로 확인하기 전까지 개인정보 입력이나 파일 다운로드를 피하세요.`;
-      result.recommendations = [
-        "계정 정보, 인증번호, 결제 정보를 입력하기 전에 멈추세요.",
-        "공식 주소를 직접 입력해 사이트를 여세요.",
-        "이미 정보를 입력했다면 비밀번호를 바꾸고 계정 활동을 확인하세요.",
-      ];
-      result.score = Math.max(result.score, 60);
-      result.scoreLabel = "의심 평판 일치";
-      result.statusLabel = "검토 필요";
+      result.explanation = isLowSeverity
+        ? `${result.displayHost}은(는) ${reputation.provider || "평판 DB"}에서 낮은 비율의 탐지만 확인되었습니다.${engineSummary} 확정 악성으로 보기는 어렵지만, 개인정보 입력 전에는 공식 채널과 최신 결과를 함께 확인하세요.`
+        : `${result.displayHost}은(는) ${reputation.provider || "평판 DB"}에서 의심 URL로 표시되었습니다.${engineSummary} 공식 채널로 확인하기 전까지 개인정보 입력이나 파일 다운로드를 피하세요.`;
+      result.recommendations = isLowSeverity
+        ? [
+            "주소창의 도메인이 예상한 공식 주소인지 다시 확인하세요.",
+            "로그인, 결제, 개인정보 입력 전에는 공식 앱이나 직접 입력한 주소를 사용하세요.",
+            "평판 결과가 오래됐거나 단일 엔진 탐지라면 잠시 후 다시 검사해 최신 결과를 확인하세요.",
+          ]
+        : [
+            "계정 정보, 인증번호, 결제 정보를 입력하기 전에 멈추세요.",
+            "공식 주소를 직접 입력해 사이트를 여세요.",
+            "이미 정보를 입력했다면 비밀번호를 바꾸고 계정 활동을 확인하세요.",
+          ];
+      result.score = Math.max(result.score, suspicionScore);
+      result.scoreLabel = isLowSeverity ? "낮은 평판 신호" : "의심 평판 일치";
+      result.statusLabel = isLowSeverity ? "낮은 위험" : "검토 필요";
       result.tone = "warn";
       result.verdict = "suspicious";
     }
@@ -97,6 +108,56 @@ function attachReputation(analysis, reputation) {
   result.verdict = "malicious";
 
   return result;
+}
+
+function normalizeReputationForVerdict(reputation) {
+  if (!isWeakVirusTotalMatch(reputation)) {
+    return reputation;
+  }
+
+  const stats = readReputationStats(reputation);
+  const totalLabel = stats.total || "여러";
+  const ageText =
+    Number.isFinite(Number(reputation.ageDays)) && Number(reputation.ageDays) >= 180
+      ? ` 마지막 분석이 ${Number(reputation.ageDays).toLocaleString("ko-KR")}일 전이라 최신성이 낮습니다.`
+      : "";
+
+  return {
+    ...reputation,
+    detail: `VirusTotal에서 ${totalLabel}개 엔진 중 ${stats.malicious}개만 악성으로 분류했고 의심 엔진은 ${stats.suspicious}개였습니다. 단일 엔진 또는 낮은 비율의 탐지는 확정 악성이 아니라 주의 신호로만 반영합니다.${ageText}`,
+    label: "VirusTotal 단일 엔진 탐지",
+    severity: "low",
+    status: "suspicious",
+    tone: "warn",
+  };
+}
+
+function isWeakVirusTotalMatch(reputation) {
+  if (reputation?.provider !== "VirusTotal" || reputation.status !== "match") {
+    return false;
+  }
+
+  const stats = readReputationStats(reputation);
+  const malicious = Number(stats.malicious || 0);
+  const suspicious = Number(stats.suspicious || 0);
+  const total = Number(stats.total || 0);
+  const flagged = malicious + suspicious;
+  const maliciousRatio = total > 0 ? malicious / total : malicious > 0 ? 1 : 0;
+
+  return malicious > 0 && malicious <= 1 && flagged <= 2 && total >= 20 && maliciousRatio < 0.05;
+}
+
+function readReputationStats(reputation) {
+  const stats = reputation?.stats || reputation?.matches?.find((item) => typeof item === "object" && "malicious" in item) || {};
+
+  return {
+    harmless: Number(stats.harmless || 0),
+    malicious: Number(stats.malicious || 0),
+    suspicious: Number(stats.suspicious || 0),
+    timeout: Number(stats.timeout || 0),
+    total: Number(stats.total || 0),
+    undetected: Number(stats.undetected || 0),
+  };
 }
 
 function attachCommunityReport(analysis, communityReport) {
@@ -337,6 +398,10 @@ function scoreReputation(reputation) {
   }
 
   if (reputation.status === "suspicious") {
+    if (reputation.severity === "low") {
+      return 55;
+    }
+
     return 70;
   }
 

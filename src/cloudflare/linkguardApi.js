@@ -1255,6 +1255,19 @@ function buildVirusTotalReputation(data) {
   };
 
   if (malicious > 0) {
+    if (isWeakVirusTotalDetection({ malicious, suspicious, total })) {
+      return {
+        detail: `VirusTotal에서 ${total || "여러"}개 엔진 중 ${malicious}개만 이 URL을 악성으로 분류했고 ${suspicious}개가 의심으로 분류했습니다. 단일 엔진 또는 낮은 비율의 탐지는 확정 악성이 아니라 주의 신호로 반영합니다.${suffix}`,
+        label: "VirusTotal 단일 엔진 탐지",
+        matches: [{ malicious, suspicious, harmless, undetected, total }],
+        provider: "VirusTotal",
+        severity: "low",
+        status: "suspicious",
+        tone: "warn",
+        ...sharedContext,
+      };
+    }
+
     return {
       detail: `VirusTotal에서 ${total || "여러"}개 엔진 중 ${malicious}개가 이 URL을 악성으로, ${suspicious}개가 의심으로 분류했습니다. 차단을 권장합니다.${suffix}`,
       label: "VirusTotal 위협 탐지",
@@ -1287,6 +1300,15 @@ function buildVirusTotalReputation(data) {
     tone: "safe",
     ...sharedContext,
   };
+}
+
+function isWeakVirusTotalDetection({ malicious, suspicious, total }) {
+  const flagged = Number(malicious || 0) + Number(suspicious || 0);
+  const maliciousCount = Number(malicious || 0);
+  const totalCount = Number(total || 0);
+  const maliciousRatio = totalCount > 0 ? maliciousCount / totalCount : maliciousCount > 0 ? 1 : 0;
+
+  return maliciousCount > 0 && maliciousCount <= 1 && flagged <= 2 && totalCount >= 20 && maliciousRatio < 0.05;
 }
 
 function extractVirusTotalEngineResults(lastAnalysisResults = {}) {

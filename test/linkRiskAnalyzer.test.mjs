@@ -35,6 +35,14 @@ test("trusts the official Gachon University domain", () => {
   assert.ok(result.signals.some((signal) => signal.label === "도메인 신뢰도" && signal.value === "공식"));
 });
 
+test("trusts ordinary YouTube watch URLs as official domains", () => {
+  const result = analyzeUrl("https://www.youtube.com/watch?v=9Qc7xonwpQs");
+
+  assert.equal(result.verdict, "safe");
+  assert.equal(result.score, 0);
+  assert.ok(result.signals.some((signal) => signal.label === "도메인 신뢰도" && signal.value === "공식"));
+});
+
 test("does not treat ordinary words containing ig as Instagram lures", () => {
   const result = analyzeUrl("https://example.com/blog/sign-in-guide");
 
