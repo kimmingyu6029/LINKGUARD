@@ -45,6 +45,25 @@ test("saves valid analysis history entries and deduplicates by URL without hash"
   assert.equal(rows[0].analysisSnapshot.displayHost, "example.com");
 });
 
+test("isolates analysis history entries by account id", () => {
+  saveAnalysisHistoryEntry(analyzeUrl("https://admin-only.example.com/"), {
+    accountId: "admin-account",
+    requestedUrl: "https://admin-only.example.com/",
+  });
+  saveAnalysisHistoryEntry(analyzeUrl("https://user-only.example.com/"), {
+    accountId: "user-account",
+    requestedUrl: "https://user-only.example.com/",
+  });
+
+  const adminRows = loadAnalysisHistory({ accountId: "admin-account" });
+  const userRows = loadAnalysisHistory({ accountId: "user-account" });
+  const newUserRows = loadAnalysisHistory({ accountId: "new-user-account" });
+
+  assert.deepEqual(adminRows.map((row) => row.url), ["https://admin-only.example.com/"]);
+  assert.deepEqual(userRows.map((row) => row.url), ["https://user-only.example.com/"]);
+  assert.deepEqual(newUserRows, []);
+});
+
 test("ignores invalid analyses and corrupted localStorage payloads", () => {
   const invalid = analyzeUrl("not a url");
 

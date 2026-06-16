@@ -4,13 +4,18 @@ const STORAGE_KEY = "linkguard:analysis-history";
 const STORAGE_EVENT = "linkguard:analysis-history-updated";
 const MAX_HISTORY_ITEMS = 100;
 
-export function loadAnalysisHistory() {
+export function getAnalysisHistoryStorageKey({ accountId = "" } = {}) {
+  const normalizedAccountId = normalizeAccountId(accountId);
+  return normalizedAccountId ? `${STORAGE_KEY}:account:${encodeURIComponent(normalizedAccountId)}` : STORAGE_KEY;
+}
+
+export function loadAnalysisHistory(options = {}) {
   if (typeof window === "undefined") {
     return [];
   }
 
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(window.localStorage.getItem(getAnalysisHistoryStorageKey(options)) || "[]");
 
     if (!Array.isArray(parsed)) {
       return [];
@@ -25,45 +30,48 @@ export function loadAnalysisHistory() {
   }
 }
 
-export function saveAnalysisHistoryEntry(analysis, { mode = "normal", requestedUrl = "" } = {}) {
+export function saveAnalysisHistoryEntry(analysis, { accountId = "", mode = "normal", requestedUrl = "" } = {}) {
   if (typeof window === "undefined" || !isStorableAnalysis(analysis)) {
     return null;
   }
 
+  const storageKey = getAnalysisHistoryStorageKey({ accountId });
   const entry = createHistoryEntry(analysis, { mode, requestedUrl });
-  const previousRows = loadAnalysisHistory();
+  const previousRows = loadAnalysisHistory({ accountId });
   const nextRows = [
     entry,
     ...previousRows.filter((row) => row.id !== entry.id),
   ].slice(0, MAX_HISTORY_ITEMS);
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows));
+  window.localStorage.setItem(storageKey, JSON.stringify(nextRows));
   window.dispatchEvent(new CustomEvent(STORAGE_EVENT));
 
   return entry;
 }
 
-export function deleteAnalysisHistoryEntries(entryIds) {
+export function deleteAnalysisHistoryEntries(entryIds, options = {}) {
   if (typeof window === "undefined") {
     return [];
   }
 
   const ids = new Set(entryIds);
-  const nextRows = loadAnalysisHistory().filter((row) => !ids.has(row.id));
+  const storageKey = getAnalysisHistoryStorageKey(options);
+  const nextRows = loadAnalysisHistory(options).filter((row) => !ids.has(row.id));
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextRows));
+  window.localStorage.setItem(storageKey, JSON.stringify(nextRows));
   window.dispatchEvent(new CustomEvent(STORAGE_EVENT));
 
   return nextRows;
 }
 
-export function subscribeAnalysisHistory(callback) {
+export function subscribeAnalysisHistory(callback, options = {}) {
   if (typeof window === "undefined") {
     return () => {};
   }
 
+  const storageKey = getAnalysisHistoryStorageKey(options);
   const handleStorage = (event) => {
-    if (!event || event.key === STORAGE_KEY) {
+    if (!event || event.key === storageKey) {
       callback();
     }
   };
@@ -208,6 +216,10 @@ function normalizeHistoryKey(value) {
   } catch {
     return value.trim().toLowerCase();
   }
+}
+
+function normalizeAccountId(accountId) {
+  return typeof accountId === "string" ? accountId.trim() : "";
 }
 
 function getDisplayHost(value) {

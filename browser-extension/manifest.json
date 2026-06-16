@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "LinkGuard URL 감시 도우미",
+  "description": "새 웹페이지에 접속할 때 LinkGuard AI로 URL 위험도를 확인하고 아바타 말풍선으로 알려줍니다.",
+  "version": "0.1.0",
+  "permissions": ["storage", "tabs", "webNavigation"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/avatar.js"],
+      "css": ["content/avatar.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/avatar-sprite.png"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "action": {
+    "default_title": "LinkGuard URL 감시 도우미"
+  }
+}

@@ -1,8 +1,21 @@
-import { AlertTriangle, CheckCircle2, FileImage, Info, Link2, ShieldAlert, UploadCloud } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileImage,
+  Info,
+  Link2,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  UploadCloud,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import SectionHeader from "../components/SectionHeader.jsx";
-import { submitUrlReport } from "../lib/linkRiskApi.js";
+import { useAccount } from "../lib/accountContext.jsx";
+import { requestMyReports, submitUrlReport } from "../lib/linkRiskApi.js";
 
 const REPORT_TYPES = [
   { label: "피싱", value: "phishing" },
@@ -22,6 +35,7 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "";
 
 export default function ReportPage() {
   const location = useLocation();
+  const { isAccountLoading, isLoggedIn, openAuthDialog } = useAccount();
   const initialReportUrl = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("url") || "";
@@ -37,6 +51,9 @@ export default function ReportPage() {
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [myReports, setMyReports] = useState([]);
+  const [myReportsError, setMyReportsError] = useState("");
+  const [isMyReportsLoading, setIsMyReportsLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRef = useRef(null);
   const canSubmit = useMemo(
@@ -50,6 +67,23 @@ export default function ReportPage() {
       url: initialReportUrl,
     }));
   }, [initialReportUrl]);
+
+  useEffect(() => {
+    if (isAccountLoading) {
+      return undefined;
+    }
+
+    if (!isLoggedIn) {
+      setMyReports([]);
+      setMyReportsError("");
+      setIsMyReportsLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    loadMyReports(controller.signal);
+    return () => controller.abort();
+  }, [isAccountLoading, isLoggedIn]);
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !turnstileRef.current) {
@@ -123,6 +157,24 @@ export default function ReportPage() {
     setEvidenceImage(file);
   }
 
+  async function loadMyReports(signal) {
+    setIsMyReportsLoading(true);
+    setMyReportsError("");
+
+    try {
+      const payload = await requestMyReports({ signal });
+      setMyReports(Array.isArray(payload.reports) ? payload.reports : []);
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setMyReportsError(error.message);
+      }
+    } finally {
+      if (!signal?.aborted) {
+        setIsMyReportsLoading(false);
+      }
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -155,6 +207,9 @@ export default function ReportPage() {
       setTurnstileToken("");
       if (window.turnstile) {
         window.turnstile.reset();
+      }
+      if (isLoggedIn) {
+        loadMyReports();
       }
     } catch (error) {
       setSubmitError(error.message);
@@ -257,8 +312,107 @@ export default function ReportPage() {
             <p>분석 리포트에서는 신고 횟수, 최근 신고일, 주요 신고 유형, 관리자 검토 상태가 함께 표시됩니다.</p>
           </div>
         </aside>
+
+        <MyReportsPanel
+          error={myReportsError}
+          isLoading={isMyReportsLoading}
+          isLoggedIn={isLoggedIn}
+          onLogin={() => openAuthDialog("login")}
+          onRefresh={() => loadMyReports()}
+          reports={myReports}
+        />
       </div>
     </section>
+  );
+}
+
+function MyReportsPanel({ error, isLoading, isLoggedIn, onLogin, onRefresh, reports }) {
+  return (
+    <section className="panel my-reports-panel">
+      <div className="panel-title-row">
+        <div>
+          <h2>내 신고 내역</h2>
+          <p className="my-reports-subtitle">제출한 URL과 작성한 신고 내용을 다시 확인할 수 있습니다.</p>
+        </div>
+        <button disabled={!isLoggedIn || isLoading} onClick={onRefresh} type="button">
+          <RefreshCw className={isLoading ? "is-spinning" : ""} size={15} />
+          <span>새로고침</span>
+        </button>
+      </div>
+
+      {!isLoggedIn ? (
+        <div className="my-reports-empty">
+          <ShieldCheck size={22} />
+          <p>로그인하면 계정으로 제출한 신고 내역을 확인할 수 있습니다.</p>
+          <button onClick={onLogin} type="button">
+            로그인
+          </button>
+        </div>
+      ) : null}
+
+      {isLoggedIn && error ? <p className="form-error">{error}</p> : null}
+
+      {isLoggedIn && reports.length === 0 && !isLoading ? (
+        <div className="my-reports-empty">
+          <Clock3 size={22} />
+          <p>아직 제출한 신고가 없습니다.</p>
+        </div>
+      ) : null}
+
+      {isLoggedIn && reports.length > 0 ? (
+        <div className="my-report-list">
+          {reports.map((report) => (
+            <MyReportCard key={report.eventId} report={report} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function MyReportCard({ report }) {
+  const url = report.originalUrl || report.normalizedUrl;
+
+  return (
+    <article className={`my-report-card tone-${getStatusTone(report.status)}`}>
+      <div className="my-report-head">
+        <div>
+          <span>{getReportTypeLabel(report.reportType)}</span>
+          <strong>{url}</strong>
+          <small>{formatReportDate(report.createdAt)}</small>
+        </div>
+        <span className={`review-status tone-${getStatusTone(report.status)}`}>{getStatusLabel(report.status)}</span>
+      </div>
+
+      <dl className="my-report-fields">
+        <div>
+          <dt>신고 URL</dt>
+          <dd>
+            <a href={report.normalizedUrl} rel="noreferrer" target="_blank">
+              {report.normalizedUrl}
+              <ExternalLink size={14} />
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>내가 작성한 내용</dt>
+          <dd>{report.description}</dd>
+        </div>
+        <div>
+          <dt>누적 신고</dt>
+          <dd>
+            {Number(report.reportCount || 0).toLocaleString("ko-KR")}건 · 신고자{" "}
+            {Number(report.uniqueReporters || 0).toLocaleString("ko-KR")}명
+          </dd>
+        </div>
+      </dl>
+
+      {report.evidenceImageUrl ? (
+        <a className="my-report-evidence" href={report.evidenceImageUrl} rel="noreferrer" target="_blank">
+          <img alt="내 신고 첨부 이미지" src={report.evidenceImageUrl} />
+        </a>
+      ) : null}
+    </article>
   );
 }
 
@@ -275,4 +429,50 @@ function ReportSuccess({ result, url }) {
       </div>
     </div>
   );
+}
+
+function getReportTypeLabel(type) {
+  return REPORT_TYPES.find((item) => item.value === type)?.label || "기타";
+}
+
+function getStatusLabel(status) {
+  return {
+    confirmed_malicious: "악성 확인",
+    confirmed_suspicious: "의심 확인",
+    expired: "만료",
+    pending: "접수됨",
+    rejected: "반려",
+    under_review: "검토 중",
+  }[status] || "접수됨";
+}
+
+function getStatusTone(status) {
+  if (status === "confirmed_malicious") {
+    return "danger";
+  }
+
+  if (status === "rejected") {
+    return "safe";
+  }
+
+  return "warn";
+}
+
+function formatReportDate(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString("ko-KR", {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }

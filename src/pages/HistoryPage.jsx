@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SectionHeader from "../components/SectionHeader.jsx";
 import StatusPill from "../components/StatusPill.jsx";
+import { useAccount } from "../lib/accountContext.jsx";
 import {
   deleteAnalysisHistoryEntries,
   downloadAnalysisHistoryReport,
@@ -42,7 +43,10 @@ const periodOptions = [
 const PAGE_SIZE = 8;
 
 export default function HistoryPage() {
-  const [historyRows, setHistoryRows] = useState(() => loadAnalysisHistory());
+  const { id: accountId, isLoggedIn } = useAccount();
+  const historyAccountId = isLoggedIn ? accountId : "";
+  const historyOptions = useMemo(() => ({ accountId: historyAccountId }), [historyAccountId]);
+  const [historyRows, setHistoryRows] = useState(() => loadAnalysisHistory(historyOptions));
   const [activeFilter, setActiveFilter] = useState("all");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,9 +55,15 @@ export default function HistoryPage() {
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
 
-  useEffect(() => subscribeAnalysisHistory(() => {
-    setHistoryRows(loadAnalysisHistory());
-  }), []);
+  useEffect(() => {
+    setHistoryRows(loadAnalysisHistory(historyOptions));
+    setSelectedIds(new Set());
+    setActionMessage("");
+
+    return subscribeAnalysisHistory(() => {
+      setHistoryRows(loadAnalysisHistory(historyOptions));
+    }, historyOptions);
+  }, [historyOptions]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -160,7 +170,7 @@ export default function HistoryPage() {
       return;
     }
 
-    deleteAnalysisHistoryEntries([...selectedIds]);
+    deleteAnalysisHistoryEntries([...selectedIds], historyOptions);
     setSelectedIds(new Set());
     setActionMessage(`선택한 분석 기록 ${selectedCount}건을 삭제했습니다.`);
   }
@@ -181,10 +191,10 @@ export default function HistoryPage() {
 
       try {
         const nextAnalysis = await requestUrlAnalysis({ mode, url: row.url });
-        saveAnalysisHistoryEntry(nextAnalysis, { mode, requestedUrl: row.url });
+        saveAnalysisHistoryEntry(nextAnalysis, { ...historyOptions, mode, requestedUrl: row.url });
         remoteCount += 1;
       } catch {
-        saveAnalysisHistoryEntry(analyzeUrl(row.url, { mode }), { mode, requestedUrl: row.url });
+        saveAnalysisHistoryEntry(analyzeUrl(row.url, { mode }), { ...historyOptions, mode, requestedUrl: row.url });
         localCount += 1;
       }
     }

@@ -33,7 +33,8 @@ import {
 } from "../lib/staticSecurityComics.js";
 
 const comicLoadingDurationMs = 3000;
-const comicFrameDurationMs = 180;
+const comicFrameDurationMs = 360;
+const comicFrameFadeOverlapMs = 120;
 
 export default function EducationPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(
@@ -47,7 +48,6 @@ export default function EducationPage() {
   );
   const [displayedComic, setDisplayedComic] = useState(null);
   const [isGeneratingComic, setIsGeneratingComic] = useState(false);
-  const [loadingFrameIndex, setLoadingFrameIndex] = useState(0);
   const comicTimerRef = useRef(null);
 
   useEffect(() => {
@@ -70,18 +70,6 @@ export default function EducationPage() {
       staticComicCategories[0],
     [selectedComicCategoryId],
   );
-
-  useEffect(() => {
-    if (!isGeneratingComic) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setLoadingFrameIndex((current) => (current + 1) % comicLoadingFrames.length);
-    }, comicFrameDurationMs);
-
-    return () => window.clearInterval(intervalId);
-  }, [isGeneratingComic]);
 
   useEffect(() => {
     return () => {
@@ -171,7 +159,6 @@ export default function EducationPage() {
     }
 
     setDisplayedComic(null);
-    setLoadingFrameIndex(0);
     setIsGeneratingComic(true);
 
     comicTimerRef.current = window.setTimeout(() => {
@@ -229,6 +216,18 @@ export default function EducationPage() {
             <strong>6컷</strong>
             <span>comic studio</span>
           </div>
+        </div>
+
+        <div className="comic-loading-preload" aria-hidden="true">
+          {comicLoadingFrames.map((frame) => (
+            <img
+              key={frame.src}
+              src={frame.src}
+              alt=""
+              loading="eager"
+              decoding="async"
+            />
+          ))}
         </div>
 
         <div className="static-comic-layout">
@@ -289,10 +288,22 @@ export default function EducationPage() {
             <div className={["static-comic-viewer", isGeneratingComic ? "is-loading" : ""].filter(Boolean).join(" ")} aria-live="polite">
               {isGeneratingComic ? (
                 <div className="comic-loading-scene">
-                  <img
-                    src={comicLoadingFrames[loadingFrameIndex].src}
-                    alt={comicLoadingFrames[loadingFrameIndex].alt}
-                  />
+                  <div className="comic-loading-frame-stack" role="img" aria-label="AI 이미지 생성 애니메이션">
+                    {comicLoadingFrames.map((frame, index) => (
+                      <img
+                        key={frame.src}
+                        className="comic-loading-frame"
+                        src={frame.src}
+                        alt=""
+                        loading="eager"
+                        decoding="async"
+                        style={{
+                          animationDelay: `${index * comicFrameDurationMs - comicFrameFadeOverlapMs}ms`,
+                          animationDuration: `${comicLoadingFrames.length * comicFrameDurationMs}ms`,
+                        }}
+                      />
+                    ))}
+                  </div>
                   <div>
                     <strong>AI 이미지 생성 중</strong>
                     <span>컷 구성, 캐릭터 배치, 보안 메시지를 정리하고 있어요.</span>

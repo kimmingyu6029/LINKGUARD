@@ -46,9 +46,37 @@ const signalIcons = {
   structure: Link2,
 };
 
+const analysisProgressSteps = [
+  {
+    detail: "주소 형식과 도메인을 먼저 정리했습니다.",
+    icon: Link2,
+    label: "URL 구조 확인",
+    status: "complete",
+  },
+  {
+    detail: "외부 평판 데이터와 신고 기록을 대조하고 있습니다.",
+    icon: Database,
+    label: "평판 DB 확인 중",
+    status: "active",
+  },
+  {
+    detail: "이동 경로와 최종 도착지를 확인합니다.",
+    icon: Route,
+    label: "리다이렉트 추적",
+    status: "pending",
+  },
+  {
+    detail: "점수와 추천 행동을 정리합니다.",
+    icon: ListChecks,
+    label: "최종 판정 준비",
+    status: "pending",
+  },
+];
+
 export default function AnalysisPage() {
   const location = useLocation();
-  const { analysisCredits, canUseExpert, isLoggedIn, openAuthDialog, plan, useAnalysisCredit } = useAccount();
+  const { analysisCredits, canUseExpert, id: accountId, isLoggedIn, openAuthDialog, plan, useAnalysisCredit } = useAccount();
+  const historyAccountId = isLoggedIn ? accountId : "";
   const consumedCreditKeysRef = useRef(new Set());
   const initialUrl = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -127,7 +155,7 @@ export default function AnalysisPage() {
           url: trimmedUrl,
         });
         setRemoteResult({ analysis: nextAnalysis, key: currentKey });
-        saveAnalysisHistoryEntry(nextAnalysis, { mode, requestedUrl: trimmedUrl });
+        saveAnalysisHistoryEntry(nextAnalysis, { accountId: historyAccountId, mode, requestedUrl: trimmedUrl });
 
         if (mode === "expert" && !hasUnlimitedExpertAccess && analysisCredits > 0 && !consumedCreditKeysRef.current.has(currentKey)) {
           consumedCreditKeysRef.current.add(currentKey);
@@ -140,7 +168,7 @@ export default function AnalysisPage() {
       } catch (error) {
         if (error.name !== "AbortError") {
           setApiError(error.message);
-          saveAnalysisHistoryEntry(analyzeUrl(trimmedUrl, { mode }), { mode, requestedUrl: trimmedUrl });
+          saveAnalysisHistoryEntry(analyzeUrl(trimmedUrl, { mode }), { accountId: historyAccountId, mode, requestedUrl: trimmedUrl });
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -153,7 +181,7 @@ export default function AnalysisPage() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [analysisCredits, hasUnlimitedExpertAccess, mode, url, useAnalysisCredit]);
+  }, [analysisCredits, hasUnlimitedExpertAccess, historyAccountId, mode, url, useAnalysisCredit]);
 
   function handleExpertModeClick() {
     if (canUseExpert) {
@@ -162,7 +190,7 @@ export default function AnalysisPage() {
   }
 
   return (
-    <section className="analysis-page page-content">
+    <section className="analysis-page page-content" aria-busy={isCheckingReputation}>
       <SectionHeader eyebrow="URL 분석하기" title="분석 결과" />
 
       <div className="analysis-toolbar">
@@ -195,6 +223,10 @@ export default function AnalysisPage() {
           </button>
         </div>
       </div>
+
+      {isCheckingReputation ? (
+        <AnalysisProgressPanel mode={mode} target={analysis.displayHost} />
+      ) : null}
 
       <VerdictSummaryBar
         analysis={analysis}
@@ -547,6 +579,49 @@ function ScreenshotMetadata({ screenshot }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+function AnalysisProgressPanel({ mode, target }) {
+  const waitCopy =
+    mode === "expert"
+      ? "전문가 모드는 웹페이지 내용까지 확인해서 조금 더 걸릴 수 있습니다."
+      : "보통 3~8초 정도 걸릴 수 있습니다.";
+  const targetLabel = target || "입력한 URL";
+
+  return (
+    <section className="analysis-progress-panel" role="status" aria-live="polite" aria-label="URL 분석 진행 상태">
+      <div className="analysis-progress-main">
+        <div className="analysis-progress-spinner" aria-hidden="true">
+          <RefreshCw size={26} />
+        </div>
+        <div>
+          <span className="analysis-progress-kicker">분석 진행 중</span>
+          <h2>외부 데이터까지 확인하고 있습니다</h2>
+          <p>
+            {targetLabel}의 평판 DB, 리다이렉트, 신고 기록을 확인하는 중입니다. {waitCopy}
+          </p>
+        </div>
+      </div>
+
+      <ol className="analysis-progress-steps" aria-label="분석 진행 단계">
+        {analysisProgressSteps.map((step) => {
+          const Icon = step.icon;
+
+          return (
+            <li className={`analysis-progress-step is-${step.status}`} key={step.label}>
+              <span className="analysis-progress-step-icon">
+                <Icon size={16} />
+              </span>
+              <span>
+                <strong>{step.label}</strong>
+                <small>{step.detail}</small>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

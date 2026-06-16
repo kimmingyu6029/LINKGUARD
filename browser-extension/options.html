@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinkGuard URL 감시 도우미 설정</title>
+    <style>
+      body {
+        min-width: 320px;
+        margin: 0;
+        padding: 22px;
+        background: #02060c;
+        color: #edf7ff;
+        font-family: Pretendard, "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+      }
+
+      main {
+        display: grid;
+        gap: 16px;
+        max-width: 620px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 0;
+        color: #9ab0c5;
+        line-height: 1.5;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: #d8ebff;
+        font-weight: 800;
+      }
+
+      input,
+      select {
+        min-height: 42px;
+        border: 1px solid rgba(143, 187, 230, 0.34);
+        border-radius: 8px;
+        padding: 0 12px;
+        background: rgba(3, 14, 27, 0.76);
+        color: #edf7ff;
+        font: inherit;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .toggle-row input {
+        width: 18px;
+        min-height: 18px;
+      }
+
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        width: fit-content;
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 16px;
+        background: linear-gradient(135deg, #0ba7ff, #0751dc);
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 900;
+      }
+
+      button.secondary {
+        border: 1px solid rgba(143, 187, 230, 0.34);
+        background: rgba(3, 14, 27, 0.76);
+        color: #dff4ff;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.64;
+      }
+
+      #status {
+        min-height: 20px;
+        color: #30e0a5;
+        font-weight: 800;
+      }
+
+      #status.is-error {
+        color: #ff8a94;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>URL 감시 도우미 설정</h1>
+        <p>확장 프로그램이 사용할 LinkGuard 웹앱 주소와 검사 방식을 설정합니다.</p>
+      </header>
+
+      <label>
+        LinkGuard API 주소
+        <input id="apiBaseUrl" placeholder="http://127.0.0.1:5173" type="url" />
+      </label>
+
+      <label>
+        분석 모드
+        <select id="mode">
+          <option value="normal">일반 분석</option>
+          <option value="expert">전문가 분석</option>
+        </select>
+      </label>
+
+      <label class="toggle-row">
+        <input id="avatarModeEnabled" type="checkbox" />
+        아바타 모드 사용
+      </label>
+
+      <div class="button-row">
+        <button id="save" type="button">저장</button>
+        <button class="secondary" id="testApi" type="button">API 연결 테스트</button>
+      </div>
+
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

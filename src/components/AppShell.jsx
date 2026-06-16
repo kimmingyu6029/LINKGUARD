@@ -1,4 +1,5 @@
-import { Crown, LogOut, UserRound, WalletCards } from "lucide-react";
+import { Bot, Crown, LogOut, UserRound, WalletCards } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { navigationItems } from "../data/navigation.js";
 import { useAccount } from "../lib/accountContext.jsx";
@@ -6,15 +7,43 @@ import { formatWonAmount } from "../lib/pricing.js";
 import AuthDialog from "./AuthDialog.jsx";
 import Logo from "./Logo.jsx";
 
+const AVATAR_MODE_STORAGE_KEY = "linkguard-avatar-mode";
+
 export default function AppShell({ children }) {
   const { isDeveloper, isLoggedIn, logout, openAuthDialog, plan, username, walletBalance } = useAccount();
+  const [isAvatarModeEnabled, setIsAvatarModeEnabled] = useState(readStoredAvatarMode);
+
+  useEffect(() => {
+    const nextMode = isAvatarModeEnabled ? "on" : "off";
+
+    document.documentElement.dataset.linkguardAvatarMode = nextMode;
+    window.localStorage.setItem(AVATAR_MODE_STORAGE_KEY, nextMode);
+    window.dispatchEvent(
+      new CustomEvent("linkguard-avatar-mode-change", {
+        detail: { enabled: isAvatarModeEnabled },
+      }),
+    );
+  }, [isAvatarModeEnabled]);
 
   return (
     <div className="app-shell">
       <div className="page-frame">
         <header className="topbar">
           <div className="topbar-inner">
-            <Logo />
+            <div className="brand-area">
+              <Logo />
+              <button
+                aria-pressed={isAvatarModeEnabled}
+                className={`avatar-mode-toggle${isAvatarModeEnabled ? " is-on" : ""}`}
+                onClick={() => setIsAvatarModeEnabled((current) => !current)}
+                title="URL 감시 도우미 아바타 모드"
+                type="button"
+              >
+                <Bot size={16} />
+                <span>아바타</span>
+                <strong>{isAvatarModeEnabled ? "ON" : "OFF"}</strong>
+              </button>
+            </div>
             <nav className="main-nav" aria-label="주요 메뉴">
               {navigationItems
                 .filter((item) => !item.developerOnly || isDeveloper)
@@ -64,4 +93,12 @@ export default function AppShell({ children }) {
       <AuthDialog />
     </div>
   );
+}
+
+function readStoredAvatarMode() {
+  try {
+    return window.localStorage.getItem(AVATAR_MODE_STORAGE_KEY) === "on";
+  } catch {
+    return false;
+  }
 }
