@@ -62,6 +62,22 @@ export async function requestAdminReports({ signal } = {}) {
   return payload;
 }
 
+export async function requestMyReports({ signal } = {}) {
+  const response = await fetch("/api/my/reports", {
+    credentials: "same-origin",
+    method: "GET",
+    signal,
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : {};
+
+  if (!response.ok) {
+    throw new Error(payload.error || `내 신고 내역 조회 실패: ${response.status}`);
+  }
+
+  return payload;
+}
+
 export async function updateAdminReportStatus({ action, reportedUrlId, signal }) {
   const response = await fetch("/api/admin/reports", {
     body: JSON.stringify({ action, reportedUrlId }),

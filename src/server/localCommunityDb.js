@@ -133,7 +133,9 @@ async function executeAll({ args, authDb, loadData, sql }) {
   if (normalizedSql.includes("from report_events") && normalizedSql.includes("inner join reported_urls")) {
     const users = authDb ? await readAuthUsers(authDb) : [];
     const userById = new Map(users.map((user) => [user.id, user]));
+    const targetUserId = normalizedSql.includes("where report_events.reporter_user_id = ?") ? args[0] : "";
     const rows = data.report_events
+      .filter((event) => !targetUserId || event.reporter_user_id === targetUserId)
       .slice()
       .sort(descByCreatedAt)
       .slice(0, 300)

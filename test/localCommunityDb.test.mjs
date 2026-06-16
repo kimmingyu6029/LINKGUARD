@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { handleAuthLogin, handleAuthSignup } from "../src/cloudflare/authApi.js";
-import { getCommunityReportForUrls, handleAdminReports, handleReportUrl } from "../src/cloudflare/communityReports.js";
+import {
+  getCommunityReportForUrls,
+  handleAdminReports,
+  handleMyReports,
+  handleReportUrl,
+} from "../src/cloudflare/communityReports.js";
 import { createLocalAuthDb } from "../src/server/localAuthDb.js";
 import { createLocalCommunityDb } from "../src/server/localCommunityDb.js";
 
@@ -88,6 +93,72 @@ test("local admin reports show reports submitted by a logged-in user", async () 
     assert.equal(adminBody.reporters.length, 1);
     assert.equal(adminBody.reporters[0].reporterLabel, "kimmingyu4056");
     assert.equal(adminBody.reporters[0].reports[0].normalizedUrl, "https://paperplanes.world");
+  } finally {
+    await rm(tempDir, { force: true, recursive: true });
+  }
+});
+
+test("logged-in users can view only their own submitted reports", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "linkguard-community-my-reports-"));
+  const authDb = createLocalAuthDb(join(tempDir, "auth.json"));
+  const communityDb = createLocalCommunityDb(join(tempDir, "community.json"), authDb);
+
+  try {
+    const ownerSession = await signupAndLogin({
+      db: authDb,
+      password: "password-4056",
+      username: "reportowner4056",
+    });
+    const otherSession = await signupAndLogin({
+      db: authDb,
+      password: "password-7777",
+      username: "otheruser7777",
+    });
+    const form = new FormData();
+    form.set("url", "https://credential-check.example.com/login");
+    form.set("reportType", "phishing");
+    form.set("description", "로그인 정보를 요구하는 의심 화면이 있었습니다.");
+    form.set("privacyConfirmed", "true");
+
+    const reportResponse = await handleReportUrl(
+      new Request("http://127.0.0.1/api/report-url", {
+        body: form,
+        headers: {
+          Cookie: ownerSession.cookie,
+        },
+        method: "POST",
+      }),
+      { DB: communityDb },
+    );
+    const ownerResponse = await handleMyReports(
+      new Request("http://127.0.0.1/api/my/reports", {
+        headers: {
+          Cookie: ownerSession.cookie,
+        },
+        method: "GET",
+      }),
+      { DB: communityDb },
+    );
+    const otherResponse = await handleMyReports(
+      new Request("http://127.0.0.1/api/my/reports", {
+        headers: {
+          Cookie: otherSession.cookie,
+        },
+        method: "GET",
+      }),
+      { DB: communityDb },
+    );
+    const ownerBody = await ownerResponse.json();
+    const otherBody = await otherResponse.json();
+
+    assert.equal(reportResponse.status, 201);
+    assert.equal(ownerResponse.status, 200);
+    assert.equal(ownerBody.reports.length, 1);
+    assert.equal(ownerBody.reports[0].normalizedUrl, "https://credential-check.example.com/login");
+    assert.equal(ownerBody.reports[0].description, "로그인 정보를 요구하는 의심 화면이 있었습니다.");
+    assert.equal(ownerBody.reports[0].reportType, "phishing");
+    assert.equal(otherResponse.status, 200);
+    assert.deepEqual(otherBody.reports, []);
   } finally {
     await rm(tempDir, { force: true, recursive: true });
   }

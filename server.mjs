@@ -6,6 +6,7 @@ import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   handleAdminReports as handleCloudflareAdminReports,
+  handleMyReports as handleCloudflareMyReports,
   handleReportUrl as handleCloudflareReportUrl,
 } from "./src/cloudflare/communityReports.js";
 import {
@@ -112,6 +113,11 @@ const server = createServer(async (request, response) => {
 
     if (requestUrl.pathname === "/api/admin/reports") {
       await handleAdminReports(request, response);
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/my/reports") {
+      await handleMyReports(request, response);
       return;
     }
 
@@ -517,6 +523,15 @@ async function handleReportUrl(request, response) {
 async function handleAdminReports(request, response) {
   const proxyRequest = createProxyRequest(request, "/api/admin/reports");
   const proxyResponse = await handleCloudflareAdminReports(proxyRequest, createLocalEnv());
+  const payload = await proxyResponse.text();
+
+  response.writeHead(proxyResponse.status, Object.fromEntries(proxyResponse.headers.entries()));
+  response.end(payload);
+}
+
+async function handleMyReports(request, response) {
+  const proxyRequest = createProxyRequest(request, "/api/my/reports");
+  const proxyResponse = await handleCloudflareMyReports(proxyRequest, createLocalEnv());
   const payload = await proxyResponse.text();
 
   response.writeHead(proxyResponse.status, Object.fromEntries(proxyResponse.headers.entries()));

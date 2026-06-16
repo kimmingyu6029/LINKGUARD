@@ -241,6 +241,23 @@ export async function handleAdminReports(request, env = {}) {
   return sendJson(405, { error: "Method not allowed" });
 }
 
+export async function handleMyReports(request, env = {}) {
+  if (request.method !== "GET") {
+    return sendJson(405, { error: "Method not allowed" });
+  }
+
+  const db = getCommunityDb(env, { optional: false });
+  const userId = await readReporterUserId(request, db);
+
+  if (!userId) {
+    return sendJson(401, { error: "로그인 후 내가 신고한 내역을 확인할 수 있습니다." });
+  }
+
+  return sendJson(200, {
+    reports: await listMyReports(db, userId),
+  });
+}
+
 export async function getCommunityReportForUrls(urls, env = {}) {
   const db = getCommunityDb(env, { optional: true });
 
@@ -371,6 +388,55 @@ async function listAdminReporters(db) {
   return [...reporters.values()].sort((left, right) =>
     String(right.latestReportAt || "").localeCompare(String(left.latestReportAt || "")),
   );
+}
+
+async function listMyReports(db, userId) {
+  const result = await db
+    .prepare(
+      `SELECT
+        report_events.id AS event_id,
+        report_events.report_type AS event_report_type,
+        report_events.description,
+        report_events.evidence_image_url,
+        report_events.created_at AS event_created_at,
+        reported_urls.id AS reported_url_id,
+        reported_urls.original_url,
+        reported_urls.normalized_url,
+        reported_urls.final_url,
+        reported_urls.domain,
+        reported_urls.report_type,
+        reported_urls.report_count,
+        reported_urls.unique_reporters,
+        reported_urls.confidence_score,
+        reported_urls.status,
+        reported_urls.created_at AS url_created_at,
+        reported_urls.updated_at AS url_updated_at
+      FROM report_events
+      INNER JOIN reported_urls ON reported_urls.id = report_events.reported_url_id
+      WHERE report_events.reporter_user_id = ?
+      ORDER BY report_events.created_at DESC
+      LIMIT 100`,
+    )
+    .bind(userId)
+    .all();
+
+  return (result.results || []).map((row) => ({
+    confidenceScore: Number(row.confidence_score || 0),
+    createdAt: row.event_created_at,
+    description: row.description || "",
+    domain: row.domain || "",
+    evidenceImageUrl: row.evidence_image_url || "",
+    eventId: row.event_id,
+    finalUrl: row.final_url || "",
+    normalizedUrl: row.normalized_url || "",
+    originalUrl: row.original_url || "",
+    reportCount: Number(row.report_count || 0),
+    reportedUrlId: row.reported_url_id,
+    reportType: normalizeReportType(row.event_report_type) || normalizeReportType(row.report_type) || "other",
+    status: REPORT_STATUSES.has(row.status) ? row.status : "pending",
+    uniqueReporters: Number(row.unique_reporters || 0),
+    updatedAt: row.url_updated_at || row.event_created_at,
+  }));
 }
 
 async function updateReportedUrlStatus(db, reportedUrlId, status) {
